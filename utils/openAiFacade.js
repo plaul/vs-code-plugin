@@ -3,7 +3,7 @@ const { Configuration, OpenAIApi } = require("openai");
 //TODO --> Make a proxy on a server to hide apiKey
 const configuration = new Configuration({
   //apiKey: process.env.OPENAI_API_KEY,
-  apiKey : "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"
+  apiKey : ""
 });
 const openai = new OpenAIApi(configuration);
 
