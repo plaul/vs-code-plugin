@@ -3,7 +3,7 @@ const { Configuration, OpenAIApi } = require("openai");
 //TODO --> Make a proxy on a server to hide apiKey
 const configuration = new Configuration({
   //apiKey: process.env.OPENAI_API_KEY,
-  apiKey : "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"
+  apiKey : ""
 });
 const openai = new OpenAIApi(configuration);
 
@@ -11,8 +11,9 @@ const openai = new OpenAIApi(configuration);
 async function callOpenAI(f) {
 
 let prompt = `How would you rate the solution to clone an array of strings given after ###### (1 to 5)
-If the solution is inefficiet, include a suggestion to fix this
-Give it a score x/5 and some pros & cons + a suggestion to what could be done better, in words, not code.
+If the solution is inefficient, include a suggestion to fix this
+Rate high if the solution handles deep clones
+Give it a score (x)/5 and some pros & cons + a suggestion to what could be done better, in words, not code.
 dont include ###### in your response
 Your response should include four lines, Score, Pros, Cons and Suggestion
 ######
@@ -41,6 +42,7 @@ async function callOpenAI2(func,reply) {
 Given that a student has written the function given in between #START# and #END# below
 and has been requested to explain what he did, as where it the exam.
 Provide feedback on his response ,4-5 lines, given in between RES_START and RES_END
+Most weight should be placed on the explanation, that is he can proof he understood what he did
 Feedback should start with the good things and include a final section with suggestions with a newline to separate the two sections
 #START# ${func} #END#  
 RES_START ${reply} RES_END`

@@ -5,6 +5,12 @@ const fs = require("fs")
 const _ = require("lodash")
 const { callOpenAI, callOpenAI2 } = require("../utils/openAiFacade")
 
+const USE_NESTED_ARRAY = 2
+const NESTED_CLONE_IMPLEMENTED = 3
+//const REQUEST_FOR_TEXT_DESCRIPTION = 4
+const WAITING_FOR_TEXT_REPLY = 5
+let stepsDone = 0
+let score = 0
 async function checkExercise() {
   const editor = vscode.window.activeTextEditor;
 
@@ -50,54 +56,80 @@ async function checkExercise() {
         if (isAReference(clonedNames, names, outputChannel)) {
           return
         }
-        if (_.isEqual(clonedNames, names)) {
-          //outputChannel.appendLine('*******************************************');
+        if (_.isEqual(clonedNames, names) && stepsDone < 2) {
           outputChannel.appendLine('You have returned a Real clone, congrats');
         }
-        let score = await arrayAreEqual(clonedNames,names,outputChannel)
-
-       if (score >= 3) {
-            outputChannel.appendLine("")
-            outputChannel.appendLine("***** NEW TASK ******")
-            outputChannel.appendLine("Replace the declaration of names with the following")
-            outputChannel.appendLine("const names=[{Name:'Paul',age:34},{Name:'Peter',age:24},{Name:'Jane',age:23}]")
-            outputChannel.appendLine("And update your method to correctly clone also this kind of arrays")
+        if(stepsDone < USE_NESTED_ARRAY){
+           score = await arrayAreEqual(cloneArray, clonedNames, names, outputChannel)
         }
-        
-        if (_.isEqual(clonedNames, names) && score >= 4) {
+
+        if (score >= 3 && stepsDone < USE_NESTED_ARRAY) {
+          stepsDone = USE_NESTED_ARRAY
+          outputChannel.appendLine("")
+          outputChannel.appendLine("***** NEW TASK ******")
+          outputChannel.appendLine("Replace the declaration of names with the following")
+          outputChannel.appendLine("const names=[{Name:'Paul',scores:[23,12]},{Name:'Peter',scores:[34,18]},{Name:'Jane',scores:[9,11]}]")
+          outputChannel.appendLine("And update your method to correctly clone also this kind of arrays")
+          return
+        }
+
+        if (_.isEqual(clonedNames, names) && stepsDone === USE_NESTED_ARRAY) {
+          if(!names[0].scores){
+            stepsDone = USE_NESTED_ARRAY -1
+            return 
+          }
           //Check if array contains names
           names[0].scores.push(100)
           const isDeepCopy = !_.isEqual(clonedNames, names);
           if (isDeepCopy) {
+            
             outputChannel.appendLine("A deep copy YES")
+            outputChannel.appendLine("")
+            outputChannel.appendLine("You have implemented a cloneMethod that handles nested objects")
+            outputChannel.appendLine(" Now finally, add a textual explanation to describe what you did")
+            
+            outputChannel.appendLine("")
+  
+            outputChannel.appendLine("Add your description to the reply1 String")
+            outputChannel.appendLine("Limit it to 4-8 lines, but take it as it was an exam question")
+            stepsDone = NESTED_CLONE_IMPLEMENTED
+            stepsDone = WAITING_FOR_TEXT_REPLY
           } else {
             outputChannel.appendLine("NOT A deep copy - try again")
           }
           return
-          const reply1 = vm.run('module.exports.reply1;');
-          if (!reply1) {
-            vscode.window.showInformationMessage(`
-          Since you got a score >= 4, add a textual explanation
+        }
+        if (stepsDone === NESTED_CLONE_IMPLEMENTED && score >100000) {
+          // const reply1 = vm.run('module.exports.reply1;');
+          // if (!reply1) {
+          vscode.window.showInformationMessage(`
+          Finally with a cloneMethod that handles nested objects, add a textual explanation
           to describe what you did.
 
           Add your description to the reply1 String
 
-          Limit it to 3-6 lines, but take it as it was an exam question
+          Limit it to 4-8 lines, but take it as it was an exam question
           `, { modal: true })
-          } else {
-            let res = await callOpenAI2(cloneArray.toString(), reply1)
-            res = res.replace(/^\n+/, '')
-            const lines = res.split("\n");
-            outputChannel.appendLine("")
-            outputChannel.appendLine("**** Feedback on your verbal description ****")
-            lines.forEach(l => outputChannel.appendLine(l))
+          stepsDone = WAITING_FOR_TEXT_REPLY
+          return
+        }
 
-          }
+        if (stepsDone === WAITING_FOR_TEXT_REPLY) {
+          const reply1 = vm.run('module.exports.reply1;');
+          let res = await callOpenAI2(cloneArray.toString(), reply1)
+          res = res.replace(/^\n+/, '')
+          const lines = res.split("\n");
+
+          outputChannel.appendLine("")
+          outputChannel.appendLine("**** Feedback on your verbal description ****")
+          lines.forEach(l => outputChannel.appendLine(l))
+
+
         }
-        if(isNotAClone(clonedNames,names,outputChannel)){
-          return 
+        if (isNotAClone(clonedNames, names, outputChannel)) {
+          return
         }
-        
+
       } catch (error) {
         vscode.window.showErrorMessage(`Error: ${error.message}`);
       }
@@ -135,7 +167,7 @@ function isAReference(clone, original, outputChannel) {
   return false
 }
 
-function isNotAClone(clone,original,outputChannel){
+function isNotAClone(clone, original, outputChannel) {
   if (!_.isEqual(clone, original)) {
     let error = ""
     if (clone.length != original.length) {
@@ -154,10 +186,10 @@ function isNotAClone(clone,original,outputChannel){
   return false
 }
 
-async function arrayAreEqual(clone, original, outputChannel) {
+async function arrayAreEqual(cloneArrayFunction, clone, original, outputChannel) {
   let score
   if (_.isEqual(clone, original)) {
-    let res = await callOpenAI(clone.toString())
+    let res = await callOpenAI(cloneArrayFunction.toString())
     res = res.replace(/^\n+/, '')
     const regex = /Score.*?(\d)\/\d/;
     const match = res.match(regex);
